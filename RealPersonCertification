@@ -1,0 +1,111 @@
+import com.aliyuncs.DefaultAcsClient;
+import com.aliyuncs.IAcsClient;
+import com.aliyuncs.cloudauth.model.v20171117.GetMaterialsRequest;
+import com.aliyuncs.cloudauth.model.v20171117.GetMaterialsResponse;
+import com.aliyuncs.cloudauth.model.v20171117.GetStatusRequest;
+import com.aliyuncs.cloudauth.model.v20171117.GetStatusResponse;
+import com.aliyuncs.cloudauth.model.v20171117.GetVerifyTokenRequest;
+import com.aliyuncs.cloudauth.model.v20171117.GetVerifyTokenResponse;
+import com.aliyuncs.dysmsapi.model.v20170525.QuerySendDetailsRequest;
+import com.aliyuncs.dysmsapi.model.v20170525.QuerySendDetailsResponse;
+import com.aliyuncs.dysmsapi.model.v20170525.SendSmsRequest;
+import com.aliyuncs.dysmsapi.model.v20170525.SendSmsResponse;
+import com.aliyuncs.dysmsapi.transform.v20170525.SendSmsResponseUnmarshaller;
+import com.aliyuncs.exceptions.ClientException;
+import com.aliyuncs.exceptions.ServerException;
+import com.aliyuncs.http.FormatType;
+import com.aliyuncs.http.HttpResponse;
+import com.aliyuncs.profile.DefaultProfile;
+import com.aliyuncs.profile.IClientProfile;
+import com.tongda.IOS_port.entity.dto.admin.RPCDto;
+
+import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.UUID;
+
+/**
+ * 实人认证
+ */
+public class RealPersonCertification {
+
+	// 创建DefaultAcsClient实例并初始化
+	static DefaultProfile profile = DefaultProfile.getProfile(
+	        "cn-hangzhou",             // 默认
+	        "",         // 您的Access Key ID
+	        "");    // 您的Access Key Secret
+	static IAcsClient client = new DefaultAcsClient(profile);
+	static String biz = ""; // 您在控制台上创建的、采用RPBasic认证方案的认证场景标识, 创建方法：https://help.aliyun.com/document_detail/59975.html
+//	String ticketId = UUID.randomUUID().toString(); // 认证ID, 由使用方指定, 发起不同的认证任务需要更换不同的认证ID
+	static String token = null; // 认证token, 用来串联认证请求中的各个接口
+//	int statusCode = -1; // -1 未认证, 0 认证中, 1 认证通过, 2 认证不通过
+	// 1. 服务端发起认证请求, 获取到token
+	// GetVerifyToken接口文档：https://help.aliyun.com/document_detail/57050.html
+	public static RPCDto getToken() {
+		String ticketId = UUID.randomUUID().toString(); // 认证ID, 由使用方指定, 发起不同的认证任务需要更换不同的认证ID
+		GetVerifyTokenRequest getVerifyTokenRequest = new GetVerifyTokenRequest();
+		getVerifyTokenRequest.setBiz(biz);
+		getVerifyTokenRequest.setTicketId(ticketId);
+		try {
+		    GetVerifyTokenResponse response = client.getAcsResponse(getVerifyTokenRequest);
+		    token = response.getData().getVerifyToken().getToken();
+		} catch (ServerException e) {
+		    e.printStackTrace();
+		} catch (ClientException e) {
+		    e.printStackTrace();
+		}
+		return new RPCDto("success", "", ticketId, token);
+	}
+	
+	// 2. 服务端将token传递给无线客户端
+	// 3. 无线客户端用token调起无线认证SDK
+	// 4. 用户按照由无线认证SDK组织的认证流程页面的指引，提交认证资料
+	// 5. 认证流程结束退出无线认证SDK，进入客户端回调函数
+	// 6. 服务端查询认证状态(客户端回调中也会携带认证状态, 但建议以服务端调接口确认的为准)
+	// GetStatus接口文档：https://help.aliyun.com/document_detail/57049.html
+	public static int GetStatus(String ticketId) {
+		GetStatusRequest getStatusRequest = new GetStatusRequest();
+		getStatusRequest.setBiz(biz);
+		getStatusRequest.setTicketId(ticketId);
+		int statusCode = -1;
+		try {
+		    GetStatusResponse response = client.getAcsResponse(getStatusRequest);
+		    System.out.println(response.toString());
+		    statusCode = response.getData().getStatusCode();
+		} catch (ServerException e) {
+		    e.printStackTrace();
+		} catch (ClientException e) {
+		    e.printStackTrace();
+		}
+		return statusCode;
+	}
+	
+	// 7. 服务端获取认证资料
+	// GetMaterials接口文档：https://help.aliyun.com/document_detail/57641.html
+	public static RPCDto GetMaterials(String ticketId) {
+		GetMaterialsRequest getMaterialsRequest = new GetMaterialsRequest();
+		getMaterialsRequest.setBiz(biz);
+		getMaterialsRequest.setTicketId(ticketId);
+		int statusCode = -1; // -1 未认证, 0 认证中, 1 认证通过, 2 认证不通过
+		statusCode=GetStatus(ticketId);
+		RPCDto RPC=null;
+		if( 1 == statusCode || 2 == statusCode ) { // 认证通过 or 认证不通过
+		    try {
+		        GetMaterialsResponse response = client.getAcsResponse(getMaterialsRequest);
+		       String name=response.getData().getName();
+		       String identificationNumber=response.getData().getIdentificationNumber();
+		       String sex=response.getData().getSex();
+		       String idCardFrontPic=response.getData().getIdCardFrontPic();
+		       String idCardBackPic=response.getData().getIdCardBackPic();
+		       String FacePic=response.getData().getFacePic();
+		       // 后续业务处理
+		       RPC=new RPCDto(name, identificationNumber, sex, idCardFrontPic, idCardBackPic,FacePic);
+		    } catch (ServerException e) {
+		        e.printStackTrace();
+		    } catch (ClientException e) {
+		        e.printStackTrace();
+		    }
+		}
+		return RPC;
+	}	
+}
