@@ -1,0 +1,74 @@
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+/*
+ * Message Digest Algorithm MD5（中文名为消息摘要算法第五版）为计算机安全领域广泛使用的一种散列函数，
+ * 用以提供消息的完整性保护。
+ * MD5算法具有以下特点：
+ * 1、压缩性：任意长度的数据，算出的MD5值长度都是固定的。
+ * 2、容易计算：从原数据计算出MD5值很容易。
+ * 3、抗修改性：对原数据进行任何改动，哪怕只修改1个字节，所得到的MD5值都有很大区别。
+ * 4、强抗碰撞：已知原数据和其MD5值，想找到一个具有相同MD5值的数据（即伪造数据）是非常困难的。
+ * MD5的作用是让大容量信息在用数字签名软件签署私人密钥前被"压缩"成一种保密的格式
+ * （就是把一个任意长度的字节串变换成一定长的十六进制数字串）。
+ * 除了MD5以外，其中比较有名的还有sha-1、RIPEMD以及Haval等。
+ */
+public class MD5 {
+	
+	public static String getMd5(String str) {
+		if(str==null){
+			return "";
+		}
+		MessageDigest m = null;
+		try {
+			m = MessageDigest.getInstance("MD5");
+			m.update(str.getBytes("UTF8"));
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		byte s[] = m.digest();
+		StringBuilder result = new StringBuilder("");
+		for (int i = 0; i < s.length; i++) {
+			result.append(Integer.toHexString((0x000000FF & s[i]) | 0xFFFFFF00).substring(6));
+		}
+		return result.toString();
+	}
+	
+	
+	public static void main(String[] args){
+		System.out.println(MD5.getMd5("111"));
+	}
+	
+	/**
+	 * 随机生成4位不重复大小写字母字符串
+	 * @return 4位推荐码
+	 */
+	public static String getIIUV() {
+		Random rand = new Random();
+		List<Integer> list=new ArrayList<Integer>();
+		String s="";
+		for (int i = 0; i < 4; i++) {
+			int index=0;
+			index=rand.nextInt(10);
+			if(index%2==0) {
+				index=rand.nextInt(26)+65;
+			}else {
+				index=rand.nextInt(26)+97;
+			}
+			char c=(char) index;
+			while(list.contains(index)) {
+				index=rand.nextInt(26)+65;
+			}
+			list.add(index);
+			s+=c;
+		}
+		System.out.println(s);
+		return s;
+	}
+}
